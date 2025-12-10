@@ -4,7 +4,7 @@ from pydantic import BaseModel
 class Tasks(BaseModel):
     id: int
     description: str
-    status: str
+    active: bool
 
 # Modelo para entrada de dados
 class addTask(BaseModel):
@@ -13,4 +13,4 @@ class addTask(BaseModel):
 # Modelo para alteracao de dados
 class modTask(BaseModel):
     description: str
-    status: str
+    active: bool

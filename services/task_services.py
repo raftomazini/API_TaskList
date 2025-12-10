@@ -1,4 +1,5 @@
 import json
+from . import database
 
 # Variaveis publicas
 taskFile = "taskFile.json"
@@ -28,15 +29,16 @@ def save_tasks():
 
 # Função para obter todas as tarefas
 def get_all_tasks():
-    return tasks
+    return database.get_tasks()
+
 
 # Função para obter as tarefas ativas
 def get_active_tasks():
-    return [task for task in tasks if task['status'] == 'Em Andamento']
+    return database.get_tasks(True)
 
 # Função para obter as tarefas concluidas
 def get_inactive_tasks():
-    return [task for task in tasks if task['status'] == "Concluido"]
+    return database.get_tasks(False)
 
 # Função para obter a tarefa pelo ID
 def get_task_by_id(task_id: int):
@@ -46,19 +48,11 @@ def get_task_by_id(task_id: int):
 
 # Função para adicionar uma nova tarefa
 def add_task(description: str):
-    if tasks:
-        new_id = max(task['id'] for task in tasks) + 1
-    else:
-        new_id = 0
-
-    new_task = {
-        'id': new_id,
-        'description': description,
-        'status': 'Em Andamento'
-    }
-    tasks.append(new_task)
-    save_tasks()
-    return tasks
+    execution = database.tasks_insert(description)
+    if not execution:
+        return False
+    
+    return execution
 
 # Função para excluir uma tarefa
 def del_task_by_id(task_id: int):
