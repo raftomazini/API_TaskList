@@ -19,5 +19,6 @@ metadata = MetaData()
 
 # Importa a tabela do banco de dados para o objeto
 dbtasks = Table("tasks", metadata, autoload_with=engine)
+dbusers = Table("users", metadata, autoload_with=engine)
 
     
