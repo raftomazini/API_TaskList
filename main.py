@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from models import Tasks, modTask, addTask
+from services.models import Tasks, modTask, addTask
 from services import task_services
 import uvicorn
 
@@ -24,10 +24,14 @@ def get_inactive_tasks():
 @app.get("/tasks/{task_id}", response_model=Tasks)
 def get_task_by_id(task_id: int):
     task = task_services.get_task_by_id(task_id)
-    if task:
-        return task
-    else:
+
+    if task is None:
         raise HTTPException(status_code=404, detail=f"Task with ID {task_id} not found")
+    elif task is False:
+        raise HTTPException(status_code=500, detail="Database Error")
+    
+    return task
+
 
 # Rota para adicionar uma tarefa nova
 @app.post("/tasks")
@@ -50,12 +54,15 @@ def del_task_by_id(task_id: int):
 # Rota para alterar uma tarefa especifica
 @app.patch("/tasks/{task_id}")
 def change_task(task_id: int, params: modTask):
-    tasks = task_services.change_task(task_id, params.description, params.status)
-    if tasks:
-        return tasks
-    else:
-        raise HTTPException(status_code=404, detail=f"Task with ID {task_id} not found")
+    tasks = task_services.change_task(task_id, params.description, params.active)
 
+    if tasks is None:
+        raise HTTPException(status_code=404, detail=f"Task with ID {task_id} not found")
+    elif tasks is False:
+        raise HTTPException(status_code=500, detail="Database Error")
+    
+    return tasks
+    
 # Rodar a api
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

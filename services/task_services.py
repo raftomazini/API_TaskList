@@ -1,104 +1,87 @@
 import json
+from sqlalchemy import insert, select, update, delete, func
+from sqlalchemy.exc import SQLAlchemyError
 from . import database
 
-# Variaveis publicas
-taskFile = "taskFile.json"
-tasks = []
-
-# Funcao para carregar as taferas do arquivo
-def load_tasks():
+# Função para obter as tarefas
+def get_tasks(is_active: bool | None = None):
+    stmt = select(database.dbtasks).order_by(database.dbtasks.c.id)
+    if is_active != None:
+        stmt = stmt.where(database.dbtasks.c.active == is_active)
     try:
-        with open(taskFile, "r") as file:
-            return json.load(file)
-        file.close()
-    except FileNotFoundError:
-        return []
-    except json.JSONDecodeError:
-        return []
-    except:
-        return []
-
-# Funcao para gravar as tarefas no arquivo
-def save_tasks():
-    try:
-        file = open(taskFile, "w+")
-        json.dump(tasks, file, indent=4)        
-        file.close()
-    except Exception as e:
-        return []
+        tasklist = []
+        with database.engine.begin() as conn:
+            result = conn.execute(stmt)
+            for row in result:
+                tasklist.append(row._asdict())
+        
+        return tasklist
+    except SQLAlchemyError as e:
+        print(f"Erro ao obter tarefas no banco de dados (todas/ativas/inativas): {e}")
+        return False
 
 # Função para obter todas as tarefas
 def get_all_tasks():
-    return database.get_tasks()
-
+    return get_tasks()
 
 # Função para obter as tarefas ativas
 def get_active_tasks():
-    return database.get_tasks(True)
+    return get_tasks(True)
 
 # Função para obter as tarefas concluidas
 def get_inactive_tasks():
-    return database.get_tasks(False)
+    return get_tasks(False)
 
 # Função para obter a tarefa pelo ID
 def get_task_by_id(task_id: int):
-    for task in tasks:
-        if task['id'] == task_id:
-            return task
+    try:
+        stmt = select(database.dbtasks).where(database.dbtasks.c.id == task_id)
+        with database.engine.begin() as conn:
+            row = conn.execute(stmt).one_or_none()
+            if row is None:
+                return None
+        return row._asdict()
+    except SQLAlchemyError as e:
+        print(f"Erro ao obter a tarefa pelo id: {e}")
+        return False
 
 # Função para adicionar uma nova tarefa
 def add_task(description: str):
-    execution = database.tasks_insert(description)
-    if not execution:
+    try:
+        stmt = insert(database.dbtasks).values(description=description, active=True).returning(database.dbtasks.c.id, 
+                                                                                               database.dbtasks.c.description, 
+                                                                                               database.dbtasks.c.active, 
+                                                                                               database.dbtasks.c.created_at, 
+                                                                                               database.dbtasks.c.updated_at)
+        with database.engine.begin() as conn:
+            result = conn.execute(stmt).one_or_none()
+        
+        if result is None:
+            return None
+        return result._asdict()
+    except SQLAlchemyError as e:
+        print(f"Erro ao adicionar uma nova tarefa no banco de dados: {e}")
         return False
-    
-    return execution
 
 # Função para excluir uma tarefa
 def del_task_by_id(task_id: int):
-    global tasks
-
-    oldLength = len(tasks)
-    
-    newTaskList = [task for task in tasks if task['id'] != task_id]
-
-    if len(newTaskList) < len(oldLength):
-        tasks = newTaskList
-        save_tasks()
+    try:
+        stmt = delete(database.dbtasks).where(database.dbtasks.c.id == task_id)
+        with database.engine.begin() as conn:
+            conn.execute(stmt)
         return True
-    else:
+    except SQLAlchemyError as e:
+        print(f"Erro ao excluir uma tarefa no banco de dados: {e}")
         return False
 
 # Função para alterar uma tarefa    
-def change_task(id: int, description: str, status: str):
-    task_id = id
-    new_description = description
-    new_status = status
-    
-    # Busca o índice (posição) da tarefa na lista, usando o ID
+def change_task(task_id: int, description: str, active: bool):
     try:
-        # Encontra o índice do primeiro item onde o ID corresponde
-        idx = next(i for i, task in enumerate(tasks) if task["id"] == task_id)
-    except StopIteration:
-        # Se o 'next' não encontrar nada, lança 404
+        stmt = update(database.dbtasks).values(description=description, active=active, updated_at=func.now()).where(database.dbtasks.c.id == task_id)
+        with database.engine.begin() as conn:
+            conn.execute(stmt)
+        # chamar a função para retornar a tarefa alterada
+        return get_task_by_id(task_id)
+    except SQLAlchemyError as e:
+        print(f"Erro ao alterar uma tarefa no banco de dados: {e}")
         return False
-    
-    try:
-        if new_description:
-            tasks[idx]['description'] = new_description
-
-        old_status = tasks[idx]["status"]
-        if new_status in ('Em Andamento', 'Concluido'):
-            if new_status != old_status:
-                tasks[idx]["status"] = new_status
-                
-        try:
-            save_tasks()
-            return tasks[idx]
-        except:
-            return False
-    except:
-        return False
-    
-# Carrega a lista de taferas
-tasks = load_tasks()
