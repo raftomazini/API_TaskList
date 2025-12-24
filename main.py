@@ -1,11 +1,14 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import JSONResponse
+from fastapi.security import OAuth2PasswordBearer
 from starlette.requests import Request
 from services.models import Tasks, modTask, addTask, Users, getUsers, addUsers
-from services import task_services, user_services
+from services import task_services, user_services, security
+from typing import Annotated
 import uvicorn
 
 app = FastAPI()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 # Rotas para tarefas
 #
@@ -82,15 +85,20 @@ def get_user_by_id(username: str):
 
 # Rota para listar uma usuário especifico por id
 @app.get("/user/by_id/{user_id}", response_model=getUsers)
-def get_user_by_id(user_id: int):
-    user = user_services.get_user_by_id(user_id)
-
-    if user is None:
-        raise HTTPException(status_code=404, detail=f"User with ID {user_id} not found")
-    elif user is False:
-        raise HTTPException(status_code=500, detail="Database Error")
+def get_user_by_id(user_id: int, token: Annotated[str, Depends(oauth2_scheme)]):
+    valid_token = security.check_token(token)
+    if valid_token:
+        user = user_services.get_user_by_id(user_id)
+        if user is None:
+            raise HTTPException(status_code=404, detail=f"User with ID {user_id} not found")
+        elif user is False:
+            raise HTTPException(status_code=500, detail="Database Error")
     
-    return user
+        return user
+    elif valid_token == -1:
+        raise HTTPException(status_code=401, detail="Token expirado")
+    else:
+        raise HTTPException(status_code=401, detail="Token inválido/inexistente")
 
 # Rota para registar novo usuário
 @app.post("/user/register/")
@@ -100,6 +108,15 @@ def add_user(params: addUsers):
         return user
     else:
         raise HTTPException(status_code=404, detail=f"Problems adding a new User {params.description}")
+
+# Rota para validar usuário e obter token 
+@app.get("/token/")
+def get_token(params: addUsers):
+    token = security.token(username=params.username, password=params.password)
+    if token:
+        return token
+    else:
+        raise HTTPException(status_code=404, detail="Erro ao validar usuario/senha")
 
 # Handler para tratar erros 500 (internos) que não são HTTPException
 @app.exception_handler(500)

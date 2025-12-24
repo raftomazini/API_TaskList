@@ -57,3 +57,36 @@ def add_user(username: str, password: str):
     except SQLAlchemyError as e:
         print(f"Erro ao adicionar uma novo usuario no banco de dados: {e}")
         return False
+
+# Função para verificar se o usuário/senha é válido
+def check_user(username: str, password: str):
+    try:
+        stmt = select(database.dbusers).where(database.dbusers.c.username == username)
+        with database.engine.begin() as conn:
+            result = conn.execute(stmt).one_or_none()
+        
+        if result is None:
+            return False
+        else:
+            if pbkdf2_sha256.verify(password, result.password):
+                return True
+            else:
+                return False
+    except SQLAlchemyError as e:
+        print(f"Erro ao validar usuario/senha no banco de dados: {e}")
+        return False
+    
+# Funçao para retornar o user id
+def get_user_id(username: str):
+    try:
+        stmt = select(database.dbusers).where(database.dbusers.c.username == username)
+        with database.engine.begin() as conn:
+            result = conn.execute(stmt).one_or_none()
+
+        if result is None:
+            return False
+        else:
+            return result.id
+    except SQLAlchemyError as e:
+        print(f"Erro ao consultar o user id: {e}")
+        return False
