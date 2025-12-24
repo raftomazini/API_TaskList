@@ -39,7 +39,7 @@ def get_task_by_id(task_id: int, user_id: int):
                       database.dbtasks.c.description, 
                       database.dbtasks.c.active, 
                       database.dbtasks.c.created_at, 
-                      database.dbtasks.c.updated_at).where(database.dbtasks.c.id == task_id and database.dbtasks.c.user_id == user_id)
+                      database.dbtasks.c.updated_at).where(database.dbtasks.c.id == task_id, database.dbtasks.c.user_id == user_id)
         with database.engine.begin() as conn:
             row = conn.execute(stmt).one_or_none()
             if row is None:
@@ -70,7 +70,7 @@ def add_task(description: str, user_id: int):
 # Função para excluir uma tarefa
 def del_task_by_id(task_id: int, user_id: int):
     try:
-        stmt = delete(database.dbtasks).where(database.dbtasks.c.id == task_id and database.dbtasks.c.user_id == user_id)
+        stmt = delete(database.dbtasks).where(database.dbtasks.c.id == task_id, database.dbtasks.c.user_id == user_id)
         with database.engine.begin() as conn:
             conn.execute(stmt)
         return True
@@ -81,7 +81,7 @@ def del_task_by_id(task_id: int, user_id: int):
 # Função para alterar uma tarefa    
 def change_task(task_id: int, description: str, active: bool, user_id: int):
     try:
-        stmt = update(database.dbtasks).values(description=description, active=active, updated_at=func.now()).where(database.dbtasks.c.id == task_id and database.dbtasks.c.user_id == user_id)
+        stmt = update(database.dbtasks).values(description=description, active=active, updated_at=func.now()).where(database.dbtasks.c.id == task_id, database.dbtasks.c.user_id == user_id)
         with database.engine.begin() as conn:
             conn.execute(stmt)
         # chamar a função para retornar a tarefa alterada

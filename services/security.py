@@ -3,6 +3,7 @@ import jwt
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
 from cryptography.hazmat.primitives import serialization
+from fastapi import HTTPException
 from . import user_services
 
 # Carrega variaveis de ambiente
@@ -37,6 +38,7 @@ def token(username = str, password = str):
     else:
         return False
 
+# Verifica se o token é válido
 def check_token(token: str):
     try:
         decoded_token = jwt.decode(token, public_key, algorithms=[hash_algorithm])
@@ -47,9 +49,8 @@ def check_token(token: str):
         return result
     except jwt.ExpiredSignatureError:
         print("Token expirado")
-        return False
+        raise HTTPException(status_code=401, detail="Token expirado")
     except jwt.InvalidTokenError:
         print("Token invalido")
-        return False
-    
-
+        raise HTTPException(status_code=401, detail="Token inválido")
+        

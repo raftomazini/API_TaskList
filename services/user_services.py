@@ -1,6 +1,6 @@
 import json
 from sqlalchemy import insert, select, update, delete, func
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from passlib.hash import pbkdf2_sha256
 from . import database
 
@@ -25,19 +25,15 @@ def get_user_by_username(username: str):
 # Função para obter a tarefa pelo ID
 def get_user_by_id(user_id: int):
     try:
-        stmt = select(database.dbusers).where(database.dbusers.c.id == user_id)
+        stmt = select(database.dbusers.c.id,
+                      database.dbusers.c.username,
+                      database.dbusers.c.created_at,
+                      database.dbusers.c.updated_at).where(database.dbusers.c.id == user_id)
         with database.engine.begin() as conn:
             row = conn.execute(stmt).one_or_none()
             if row is None:
                 return None
-        display_fields = {
-            'id': row.id,
-            'username': row.username,
-            'created_at': row.created_at,
-            'updated_at': row.updated_at
-        }
-        return display_fields
-        #return row._asdict()
+        return row._asdict()
     except SQLAlchemyError as e:
         print(f"Erro ao obter a tarefa pelo id: {e}")
         return False    
@@ -52,10 +48,10 @@ def add_user(username: str, password: str):
                                                                                                             database.dbusers.c.updated_at)
         with database.engine.begin() as conn:
             result = conn.execute(stmt).one_or_none()
-        
-        if result is None:
-            return None
-        return result._asdict()
+            return result._asdict() if result else None
+    except IntegrityError:
+        print(f"Usuário já existente")
+        return -1
     except SQLAlchemyError as e:
         print(f"Erro ao adicionar uma novo usuario no banco de dados: {e}")
         return False
