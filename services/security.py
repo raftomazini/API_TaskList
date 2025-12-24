@@ -48,7 +48,7 @@ def check_token(token: str):
         return result
     except jwt.ExpiredSignatureError:
         print("Token expirado")
-        return -1
+        return False
     except jwt.InvalidTokenError:
         print("Token invalido")
         return False

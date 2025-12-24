@@ -87,18 +87,17 @@ def get_user_by_id(username: str):
 @app.get("/user/by_id/{user_id}", response_model=getUsers)
 def get_user_by_id(user_id: int, token: Annotated[str, Depends(oauth2_scheme)]):
     valid_token = security.check_token(token)
-    if valid_token:
+    if not valid_token:
+        raise HTTPException(status_code=401, detail="Token expirado ou inválido")
+    else:
         user = user_services.get_user_by_id(user_id)
+        
         if user is None:
             raise HTTPException(status_code=404, detail=f"User with ID {user_id} not found")
         elif user is False:
             raise HTTPException(status_code=500, detail="Database Error")
-    
+       
         return user
-    elif valid_token == -1:
-        raise HTTPException(status_code=401, detail="Token expirado")
-    else:
-        raise HTTPException(status_code=401, detail="Token inválido/inexistente")
 
 # Rota para registar novo usuário
 @app.post("/user/register/")
