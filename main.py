@@ -14,23 +14,51 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 #
 # Rotas para listar todas as tarefas
 @app.get("/tasks", response_model=list[Tasks])
-def get_all_tasks():
-    return task_services.get_all_tasks()
+def get_all_tasks(token: Annotated[str, Depends(oauth2_scheme)]):
+
+    valid_token = security.check_token(token)
+    if not valid_token:
+        raise HTTPException(status_code=401, detail="Token expirado ou inválido")
+    else:
+        user_id = valid_token['id']
+
+    return task_services.get_all_tasks(user_id)
 
 # Rota para listar apenas as tarefas ativas
 @app.get("/tasks/actives", response_model=list[Tasks])
-def get_active_tasks():
-    return task_services.get_active_tasks()
+def get_active_tasks(token: Annotated[str, Depends(oauth2_scheme)]):
+
+    valid_token = security.check_token(token)
+    if not valid_token:
+        raise HTTPException(status_code=401, detail="Token expirado ou inválido")
+    else:
+        user_id = valid_token['id']
+
+    return task_services.get_active_tasks(user_id)
 
 # Rota para listar apenas as tarefas inativas
 @app.get("/tasks/inactives", response_model=list[Tasks])
-def get_inactive_tasks():
-    return task_services.get_inactive_tasks()
+def get_inactive_tasks(token: Annotated[str, Depends(oauth2_scheme)]):
+
+    valid_token = security.check_token(token)
+    if not valid_token:
+        raise HTTPException(status_code=401, detail="Token expirado ou inválido")
+    else:
+        user_id = valid_token['id']
+
+    return task_services.get_inactive_tasks(user_id)
 
 # Rota para listar uma tarefa especifica
 @app.get("/tasks/{task_id}", response_model=Tasks)
-def get_task_by_id(task_id: int):
-    task = task_services.get_task_by_id(task_id)
+def get_task_by_id(task_id: int, token: Annotated[str, Depends(oauth2_scheme)]):
+
+    valid_token = security.check_token(token)
+    if not valid_token:
+        raise HTTPException(status_code=401, detail="Token expirado ou inválido")
+    else:
+        user_id = valid_token['id']
+
+    task = task_services.get_task_by_id(task_id, user_id)
 
     if task is None:
         raise HTTPException(status_code=404, detail=f"Task with ID {task_id} not found")
@@ -41,8 +69,15 @@ def get_task_by_id(task_id: int):
 
 # Rota para adicionar uma tarefa nova
 @app.post("/tasks")
-def add_task(params: addTask):
-    tasks = task_services.add_task(params.description)
+def add_task(params: addTask, token: Annotated[str, Depends(oauth2_scheme)]):
+
+    valid_token = security.check_token(token)
+    if not valid_token:
+        raise HTTPException(status_code=401, detail="Token expirado ou inválido")
+    else:
+        user_id = valid_token['id']
+
+    tasks = task_services.add_task(params.description, user_id)
     if tasks:
         return tasks
     else:
@@ -50,8 +85,15 @@ def add_task(params: addTask):
 
 # Rota para excluir uma tarefa especifica
 @app.delete("/tasks/{task_id}")
-def del_task_by_id(task_id: int):
-    wasDeleted = task_services.del_task_by_id(task_id)
+def del_task_by_id(task_id: int, token: Annotated[str, Depends(oauth2_scheme)]):
+
+    valid_token = security.check_token(token)
+    if not valid_token:
+        raise HTTPException(status_code=401, detail="Token expirado ou inválido")
+    else:
+        user_id = valid_token['id']
+
+    wasDeleted = task_services.del_task_by_id(task_id, user_id)
     if not wasDeleted:
         raise HTTPException(status_code=404, detail=f"Task with ID {task_id} not found")
     # Retorna status 204 (No Content) para DELETE bem-sucedido
@@ -59,9 +101,15 @@ def del_task_by_id(task_id: int):
     
 # Rota para alterar uma tarefa especifica
 @app.patch("/tasks/{task_id}")
-def change_task(task_id: int, params: modTask):
-    tasks = task_services.change_task(task_id, params.description, params.active)
+def change_task(task_id: int, params: modTask, token: Annotated[str, Depends(oauth2_scheme)]):
 
+    valid_token = security.check_token(token)
+    if not valid_token:
+        raise HTTPException(status_code=401, detail="Token expirado ou inválido")
+    else:
+        user_id = valid_token['id']
+
+    tasks = task_services.change_task(task_id, params.description, params.active, user_id)
     if tasks is None:
         raise HTTPException(status_code=404, detail=f"Task with ID {task_id} not found")
     elif tasks is False:
@@ -72,32 +120,23 @@ def change_task(task_id: int, params: modTask):
 # Rotas para usuários
 #
 # Rota para listar uma usuário especifico por username
-@app.get("/user/{username}", response_model=getUsers)
-def get_user_by_id(username: str):
-    user = user_services.get_user_by_username(username)
+@app.get("/user/", response_model=getUsers)
+def get_user_by_id(token: Annotated[str, Depends(oauth2_scheme)]):
 
+    valid_token = security.check_token(token)
+    if not valid_token:
+        raise HTTPException(status_code=401, detail="Token expirado ou inválido")
+    else:
+        username = valid_token['username']
+        user_id = valid_token['id']
+
+    user = user_services.get_user_by_id(user_id)
     if user is None:
         raise HTTPException(status_code=404, detail=f"User with USERNAME {username} not found")
     elif user is False:
         raise HTTPException(status_code=500, detail="Database Error")
     
     return user
-
-# Rota para listar uma usuário especifico por id
-@app.get("/user/by_id/{user_id}", response_model=getUsers)
-def get_user_by_id(user_id: int, token: Annotated[str, Depends(oauth2_scheme)]):
-    valid_token = security.check_token(token)
-    if not valid_token:
-        raise HTTPException(status_code=401, detail="Token expirado ou inválido")
-    else:
-        user = user_services.get_user_by_id(user_id)
-        
-        if user is None:
-            raise HTTPException(status_code=404, detail=f"User with ID {user_id} not found")
-        elif user is False:
-            raise HTTPException(status_code=500, detail="Database Error")
-       
-        return user
 
 # Rota para registar novo usuário
 @app.post("/user/register/")

@@ -4,8 +4,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from . import database
 
 # Função para obter as tarefas
-def get_tasks(is_active: bool | None = None):
-    stmt = select(database.dbtasks).order_by(database.dbtasks.c.id)
+def get_tasks(user_id: int, is_active: bool | None = None):
+    stmt = select(database.dbtasks).where(database.dbtasks.c.user_id == user_id).order_by(database.dbtasks.c.id)
     if is_active != None:
         stmt = stmt.where(database.dbtasks.c.active == is_active)
     try:
@@ -21,21 +21,25 @@ def get_tasks(is_active: bool | None = None):
         return False
 
 # Função para obter todas as tarefas
-def get_all_tasks():
-    return get_tasks()
+def get_all_tasks(user_id: int):
+    return get_tasks(user_id)
 
 # Função para obter as tarefas ativas
-def get_active_tasks():
-    return get_tasks(True)
+def get_active_tasks(user_id: int):
+    return get_tasks(user_id, True)
 
 # Função para obter as tarefas concluidas
-def get_inactive_tasks():
-    return get_tasks(False)
+def get_inactive_tasks(user_id: int):
+    return get_tasks(user_id, False)
 
 # Função para obter a tarefa pelo ID
-def get_task_by_id(task_id: int):
+def get_task_by_id(task_id: int, user_id: int):
     try:
-        stmt = select(database.dbtasks).where(database.dbtasks.c.id == task_id)
+        stmt = select(database.dbtasks.c.id, 
+                      database.dbtasks.c.description, 
+                      database.dbtasks.c.active, 
+                      database.dbtasks.c.created_at, 
+                      database.dbtasks.c.updated_at).where(database.dbtasks.c.id == task_id and database.dbtasks.c.user_id == user_id)
         with database.engine.begin() as conn:
             row = conn.execute(stmt).one_or_none()
             if row is None:
@@ -46,13 +50,13 @@ def get_task_by_id(task_id: int):
         return False
 
 # Função para adicionar uma nova tarefa
-def add_task(description: str):
+def add_task(description: str, user_id: int):
     try:
-        stmt = insert(database.dbtasks).values(description=description, active=True).returning(database.dbtasks.c.id, 
-                                                                                               database.dbtasks.c.description, 
-                                                                                               database.dbtasks.c.active, 
-                                                                                               database.dbtasks.c.created_at, 
-                                                                                               database.dbtasks.c.updated_at)
+        stmt = insert(database.dbtasks).values(description=description, active=True, user_id=user_id).returning(database.dbtasks.c.id, 
+                                                                                                                database.dbtasks.c.description, 
+                                                                                                                database.dbtasks.c.active, 
+                                                                                                                database.dbtasks.c.created_at, 
+                                                                                                                database.dbtasks.c.updated_at)
         with database.engine.begin() as conn:
             result = conn.execute(stmt).one_or_none()
         
@@ -64,9 +68,9 @@ def add_task(description: str):
         return False
 
 # Função para excluir uma tarefa
-def del_task_by_id(task_id: int):
+def del_task_by_id(task_id: int, user_id: int):
     try:
-        stmt = delete(database.dbtasks).where(database.dbtasks.c.id == task_id)
+        stmt = delete(database.dbtasks).where(database.dbtasks.c.id == task_id and database.dbtasks.c.user_id == user_id)
         with database.engine.begin() as conn:
             conn.execute(stmt)
         return True
@@ -75,13 +79,13 @@ def del_task_by_id(task_id: int):
         return False
 
 # Função para alterar uma tarefa    
-def change_task(task_id: int, description: str, active: bool):
+def change_task(task_id: int, description: str, active: bool, user_id: int):
     try:
-        stmt = update(database.dbtasks).values(description=description, active=active, updated_at=func.now()).where(database.dbtasks.c.id == task_id)
+        stmt = update(database.dbtasks).values(description=description, active=active, updated_at=func.now()).where(database.dbtasks.c.id == task_id and database.dbtasks.c.user_id == user_id)
         with database.engine.begin() as conn:
             conn.execute(stmt)
         # chamar a função para retornar a tarefa alterada
-        return get_task_by_id(task_id)
+        return get_task_by_id(task_id, user_id)
     except SQLAlchemyError as e:
         print(f"Erro ao alterar uma tarefa no banco de dados: {e}")
         return False

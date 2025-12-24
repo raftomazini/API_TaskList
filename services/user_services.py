@@ -32,7 +32,9 @@ def get_user_by_id(user_id: int):
                 return None
         display_fields = {
             'id': row.id,
-            'username': row.username
+            'username': row.username,
+            'created_at': row.created_at,
+            'updated_at': row.updated_at
         }
         return display_fields
         #return row._asdict()
@@ -90,3 +92,4 @@ def get_user_id(username: str):
     except SQLAlchemyError as e:
         print(f"Erro ao consultar o user id: {e}")
         return False
+    

@@ -30,6 +30,8 @@ class Users(BaseModel):
 class getUsers(BaseModel):
     id: int
     username: str
+    created_at: datetime | None = None
+    updated_at: datetime | None = None    
 
 # Modelo de dados para adicionar users
 class addUsers(BaseModel):

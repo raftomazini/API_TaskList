@@ -7,7 +7,6 @@ from . import user_services
 
 # Carrega variaveis de ambiente
 load_dotenv()
-#secret_key = os.getenv("secret_key")
 private_key = os.getenv("private_key")
 public_key = os.getenv("public_key")
 
