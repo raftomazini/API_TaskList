@@ -1,4 +1,6 @@
-from sqlalchemy import create_engine, MetaData, Table, insert, select, update, delete
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncAttrs, async_sessionmaker
+from sqlalchemy.orm import DeclarativeBase, mapped_column, class_mapper
+from sqlalchemy import BigInteger, String, DateTime, Integer, Boolean, ForeignKey, func
 from dotenv import load_dotenv
 import os
 
@@ -11,14 +13,34 @@ dbhost = os.getenv("dbhost")
 dbport = os.getenv("dbport")
 dbname = os.getenv("dbname")
 
+
 # Cria a conexão com o banco de dados
-engine = create_engine(f"{driver}://{dbuser}:{dbpass}@{dbhost}:{dbport}/{dbname}")
+engine = create_async_engine(f"{driver}://{dbuser}:{dbpass}@{dbhost}:{dbport}/{dbname}", echo=False)
 
-# Cria o objeto de metadados
-metadata = MetaData()
+# Cria uma fábrica de sessões assíncronas
+async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-# Importa a tabela do banco de dados para o objeto
-dbtasks = Table("tasks", metadata, autoload_with=engine)
-dbusers = Table("users", metadata, autoload_with=engine)
+# Cria a classe base
+class Base(AsyncAttrs, DeclarativeBase):
+    # Retorna os dados como dicionário
+    def to_dict(self):
+        return {column.key: getattr(self, column.key) for column in class_mapper(self.__class__).columns}
 
-    
+# Definição da tabela users
+class dbusers(Base):
+    __tablename__   = "users"
+    id              = mapped_column(Integer, primary_key=True, autoincrement=True)
+    username        = mapped_column(String(100), nullable=False, unique=True)
+    password        = mapped_column(String(255), nullable=False)
+    created_at      = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at      = mapped_column(DateTime(timezone=True), onupdate=func.now())
+
+# Definição da tabela tasks
+class dbtasks(Base):
+    __tablename__   = "tasks"
+    id              = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    description     = mapped_column(String(500), nullable=False)
+    active          = mapped_column(Boolean, nullable=False, default=True)
+    user_id         = mapped_column(Integer, ForeignKey("users.id"))
+    created_at      = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at      = mapped_column(DateTime(timezone=True), onupdate=func.now())

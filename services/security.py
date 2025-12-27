@@ -2,7 +2,6 @@ import os
 import jwt
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
-from cryptography.hazmat.primitives import serialization
 from fastapi import HTTPException
 from . import user_services
 
@@ -17,10 +16,10 @@ hash_algorithm = "RS256"
 token_expires_minutes = 15
 
 # Cria o token
-def token(username = str, password = str):
-    valid_user = user_services.check_user(username=username, password=password)
+async def token(username = str, password = str):
+    valid_user = await user_services.check_user(username=username, password=password)
     if valid_user:
-        user_id = user_services.get_user_id(username)
+        user_id = await user_services.get_user_id(username)
         if user_id:
             encoded_data = {
                 "id": user_id,
@@ -49,8 +48,8 @@ def check_token(token: str):
         return result
     except jwt.ExpiredSignatureError:
         print("Token expirado")
-        raise HTTPException(status_code=401, detail="Token expirado")
+        return -1
     except jwt.InvalidTokenError:
         print("Token invalido")
-        raise HTTPException(status_code=401, detail="Token inválido")
+        return False
         

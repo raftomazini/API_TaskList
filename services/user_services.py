@@ -1,54 +1,30 @@
-import json
-from sqlalchemy import insert, select, update, delete, func
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from passlib.hash import pbkdf2_sha256
+from datetime import datetime
 from . import database
-
-# Função para obter a tarefa pelo USERNAME
-def get_user_by_username(username: str):
-    try:
-        stmt = select(database.dbusers).where(database.dbusers.c.username == username)
-        with database.engine.begin() as conn:
-            row = conn.execute(stmt).one_or_none()
-            if row is None:
-                return None
-        display_fields = {
-            'id': row.id,
-            'username': row.username
-        }
-        return display_fields
-        #return row._asdict()
-    except SQLAlchemyError as e:
-        print(f"Erro ao obter a tarefa pelo id: {e}")
-        return False
     
 # Função para obter a tarefa pelo ID
-def get_user_by_id(user_id: int):
+async def get_user_by_id(user_id: int):
     try:
-        stmt = select(database.dbusers.c.id,
-                      database.dbusers.c.username,
-                      database.dbusers.c.created_at,
-                      database.dbusers.c.updated_at).where(database.dbusers.c.id == user_id)
-        with database.engine.begin() as conn:
-            row = conn.execute(stmt).one_or_none()
-            if row is None:
-                return None
-        return row._asdict()
+        stmt = select(database.dbusers).where(database.dbusers.id == user_id)
+        async with database.async_session() as session:
+            result = await session.execute(stmt)
+            data = result.scalar_one_or_none()
+            return data.to_dict() if data else None
     except SQLAlchemyError as e:
         print(f"Erro ao obter a tarefa pelo id: {e}")
         return False    
 
 # Função para adicionar uma novo usuário
-def add_user(username: str, password: str):
+async def add_user(username: str, password: str):
     try:
-        stmt = insert(database.dbusers).values(username=username, password=pbkdf2_sha256.hash(password)).returning(database.dbusers.c.id, 
-                                                                                                            database.dbusers.c.username, 
-                                                                                                            database.dbusers.c.password, 
-                                                                                                            database.dbusers.c.created_at, 
-                                                                                                            database.dbusers.c.updated_at)
-        with database.engine.begin() as conn:
-            result = conn.execute(stmt).one_or_none()
-            return result._asdict() if result else None
+        new_user = database.dbusers(username = username, password = pbkdf2_sha256.hash(password))
+        async with database.async_session() as session:                                                                                                     
+            async with session.begin():
+                session.add(new_user)
+            await session.refresh(new_user)
+            return new_user.to_dict()
     except IntegrityError:
         print(f"Usuário já existente")
         return -1
@@ -56,17 +32,42 @@ def add_user(username: str, password: str):
         print(f"Erro ao adicionar uma novo usuario no banco de dados: {e}")
         return False
 
-# Função para verificar se o usuário/senha é válido
-def check_user(username: str, password: str):
+# Função para alterar os dados do usuário
+async def change_user(id: int, username: str, password: str):
     try:
-        stmt = select(database.dbusers).where(database.dbusers.c.username == username)
-        with database.engine.begin() as conn:
-            result = conn.execute(stmt).one_or_none()
-        
-        if result is None:
+        stmt = select(database.dbusers).where(database.dbusers.id == id)
+        async with database.async_session() as session:
+            async with session.begin():
+                result = await session.execute(stmt)
+                user = result.scalar_one_or_none()
+                if user:
+                    user.username = username
+                    user.password = pbkdf2_sha256.hash(password)
+                    user.updated_at = datetime.now()
+                else:
+                    print(f"Usuario {username} nao encontrado: {id}")
+                    return None
+                return user.to_dict()
+    except IntegrityError as e:
+        print(f"Tentando alterar o usuario para um username existente: {username}")
+        return -1
+    except SQLAlchemyError as e:
+        print(f"Erro ao consultar o usuario para alteracao: {e}")
+        return False
+                
+    
+
+# Função para verificar se o usuário/senha é válido
+async def check_user(username: str, password: str):
+    try:
+        stmt = select(database.dbusers).where(database.dbusers.username == username)
+        async with database.async_session() as session:
+            result = await session.execute(stmt)
+            data = result.scalar_one_or_none()
+        if data is None:
             return False
         else:
-            if pbkdf2_sha256.verify(password, result.password):
+            if pbkdf2_sha256.verify(password, data.password):
                 return True
             else:
                 return False
@@ -75,16 +76,17 @@ def check_user(username: str, password: str):
         return False
     
 # Funçao para retornar o user id
-def get_user_id(username: str):
+async def get_user_id(username: str):
     try:
-        stmt = select(database.dbusers).where(database.dbusers.c.username == username)
-        with database.engine.begin() as conn:
-            result = conn.execute(stmt).one_or_none()
+        stmt = select(database.dbusers).where(database.dbusers.username == username)
+        async with database.async_session() as session:
+            result = await session.execute(stmt)
+            data = result.scalar_one_or_none()
 
-        if result is None:
+        if data is None:
             return False
         else:
-            return result.id
+            return data.id
     except SQLAlchemyError as e:
         print(f"Erro ao consultar o user id: {e}")
         return False
